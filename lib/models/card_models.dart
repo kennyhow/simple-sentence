@@ -108,6 +108,15 @@ class AnkiCard {
   final String? nuance;
   final DateTime createdAt;
 
+  /// AnkiDroid note ID (from content provider), used for rotation/deletion.
+  final int? ankiNoteId;
+
+  /// Rotation level: 1 = simple, 2 = natural, 3 = authentic.
+  final int rotationLevel;
+
+  /// Links rotated cards to their original (null for original cards).
+  final String? parentCardId;
+
   AnkiCard({
     String? id,
     required this.word,
@@ -123,6 +132,9 @@ class AnkiCard {
     this.pitchAccent,
     this.nuance,
     DateTime? createdAt,
+    this.ankiNoteId,
+    this.rotationLevel = 1,
+    this.parentCardId,
   })  : id = id ?? _uuid.v4(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -143,6 +155,9 @@ class AnkiCard {
         createdAt: json['created_at'] != null
             ? DateTime.parse(json['created_at'] as String)
             : null,
+        ankiNoteId: json['anki_note_id'] as int?,
+        rotationLevel: json['rotation_level'] as int? ?? 1,
+        parentCardId: json['parent_card_id'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -160,7 +175,59 @@ class AnkiCard {
         if (pitchAccent != null) 'pitch_accent': pitchAccent,
         if (nuance != null) 'nuance': nuance,
         'created_at': createdAt.toIso8601String(),
+        if (ankiNoteId != null) 'anki_note_id': ankiNoteId,
+        'rotation_level': rotationLevel,
+        if (parentCardId != null) 'parent_card_id': parentCardId,
       };
+
+  /// Whether this card is due for rotation to the next level.
+  bool isDueForRotation() {
+    final config = RotationConfig.levels[rotationLevel];
+    if (config == null) return false; // max level reached
+    final age = DateTime.now().difference(createdAt);
+    return age >= config.triggerAfter;
+  }
+
+  /// The next rotation level, or null if already at max.
+  int? get nextRotationLevel =>
+      rotationLevel < RotationConfig.levels.length ? rotationLevel + 1 : null;
+}
+
+/// Configuration for sentence rotation difficulty progression.
+class RotationConfig {
+  static const Map<int, LevelConfig> levels = {
+    1: LevelConfig(
+      label: 'Simple',
+      triggerAfter: Duration(days: 3),
+      styleDescription: 'short, simple, textbook-clear',
+    ),
+    2: LevelConfig(
+      label: 'Natural',
+      triggerAfter: Duration(days: 14),
+      styleDescription: 'natural, slightly longer, colloquial, conversational',
+    ),
+    3: LevelConfig(
+      label: 'Authentic',
+      triggerAfter: Duration(days: 30),
+      styleDescription:
+          'authentic — news excerpts, literature, or conversation with idioms and natural phrasing',
+    ),
+  };
+
+  /// Total number of rotation levels (including level 1).
+  static int get maxLevel => levels.length;
+}
+
+class LevelConfig {
+  final String label;
+  final Duration triggerAfter;
+  final String styleDescription;
+
+  const LevelConfig({
+    required this.label,
+    required this.triggerAfter,
+    required this.styleDescription,
+  });
 }
 
 /// Input to the LLM lookup.

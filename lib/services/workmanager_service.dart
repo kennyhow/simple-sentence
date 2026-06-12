@@ -10,6 +10,7 @@ import 'settings_service.dart';
 /// Background task names registered with WorkManager.
 const _taskLookupWord = 'lookup_word';
 const _taskGenerateCard = 'generate_card';
+const _taskRotateCards = 'rotate_cards';
 
 /// Callback dispatcher — must be a top-level function.
 @pragma('vm:entry-point')
@@ -35,6 +36,8 @@ void workmanagerCallbackDispatcher() {
           return await _handleLookupWord(data, llm, prefs);
         case _taskGenerateCard:
           return await _handleGenerateCard(data, llm, prefs);
+        case _taskRotateCards:
+          return await _handleRotateCards(llm, prefs);
         default:
           return false;
       }
@@ -98,24 +101,86 @@ Future<bool> _handleGenerateCard(
     extraNotes: extraNotes,
   );
 
-  // Store for UI
-  final cardJson = jsonEncode(card.toJson());
-  await prefs.setString('last_generated_card', cardJson);
+  // Push to AnkiDroid and get the card with note ID
+  final anki = AnkiService();
+  final pushedCard = await anki.addCard(card);
 
-  // Add to history
+  // Store the card with its Anki note ID (for rotation tracking)
+  final storedCard = pushedCard ?? card;
+  final storedJson = jsonEncode(storedCard.toJson());
+  await prefs.setString('last_generated_card', storedJson);
+
+  // Add to history (with note ID if available)
   final history = prefs.getStringList('card_history') ?? [];
-  history.insert(0, cardJson);
-  if (history.length > 200) history.removeLast(); // cap at 200
+  history.insert(0, storedJson);
+  if (history.length > 200) history.removeLast();
   await prefs.setStringList('card_history', history);
 
-  // Push to AnkiDroid
-  final anki = AnkiService();
-  final pushed = await anki.addCard(card);
-
   await _showNotification(
-    'Card ready${pushed ? " ✓" : ""}',
-    '${card.word}: ${card.sentence}${pushed ? "" : " (AnkiDroid not available)"}',
+    'Card ready${pushedCard != null ? " ✓" : ""}',
+    '${card.word}: ${card.sentence}${pushedCard != null ? "" : " (AnkiDroid not available)"}',
   );
+
+  return true;
+}
+
+/// Handle card rotation: scan history for cards due for rotation,
+/// generate harder sentences, replace old cards in AnkiDroid.
+Future<bool> _handleRotateCards(
+  LlmService llm,
+  SharedPreferences prefs,
+) async {
+  final history = prefs.getStringList('card_history') ?? [];
+  final anki = AnkiService();
+
+  var rotated = 0;
+  final updatedHistory = <String>[];
+
+  for (final raw in history) {
+    final card = AnkiCard.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>);
+
+    if (card.isDueForRotation() && card.ankiNoteId != null) {
+      final nextLevel = card.nextRotationLevel;
+      if (nextLevel == null) {
+        updatedHistory.add(raw);
+        continue;
+      }
+
+      try {
+        // Generate harder sentence
+        final newCard = await llm.generateRotatedCard(
+          originalCard: card,
+          targetLevel: nextLevel,
+        );
+
+        // Delete old note from AnkiDroid
+        await anki.deleteNote(card.ankiNoteId!);
+
+        // Push new card
+        final pushed = await anki.addCard(newCard);
+        if (pushed != null) {
+          updatedHistory.add(jsonEncode(pushed.toJson()));
+          rotated++;
+        } else {
+          updatedHistory.add(raw);
+        }
+      } catch (_) {
+        updatedHistory.add(raw);
+      }
+    } else {
+      updatedHistory.add(raw);
+    }
+  }
+
+  await prefs.setStringList('card_history', updatedHistory);
+
+  if (rotated > 0) {
+    await _showNotification(
+      'Cards rotated',
+      '$rotated card${rotated > 1 ? 's' : ''} upgraded to harder sentences',
+    );
+  }
 
   return true;
 }
@@ -183,5 +248,18 @@ Future<void> scheduleGenerateCard({
       networkType: NetworkType.connected,
     ),
     existingWorkPolicy: ExistingWorkPolicy.append,
+  );
+}
+
+/// Schedule periodic card rotation check (every 6 hours).
+Future<void> scheduleRotationCheck() async {
+  await Workmanager().registerPeriodicTask(
+    'rotation_check',
+    _taskRotateCards,
+    frequency: const Duration(hours: 6),
+    constraints: Constraints(
+      networkType: NetworkType.connected,
+    ),
+    existingWorkPolicy: ExistingWorkPolicy.keep,
   );
 }

@@ -1,24 +1,31 @@
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import '../models/card_models.dart';
+import 'anki_content_provider.dart';
 
-/// Pushes cards to AnkiDroid via Android Intents.
+/// Pushes cards to AnkiDroid via Android Intents + Content Provider.
 ///
 /// AnkiDroid accepts cards via the com.ichi2.anki.api.ADD_NOTE action.
 /// The note type (model) must already exist in AnkiDroid.
+///
+/// After adding a card, we query the content provider to get the note ID,
+/// which enables rotation (delete old → push new) later.
 class AnkiService {
   static const _actionAddNote = 'com.ichi2.anki.api.ADD_NOTE';
   static const _defaultDeckName = 'Japanese Mining';
   static const _defaultModelName = 'Japanese Sentence';
 
-  /// Push a card to AnkiDroid.
+  final AnkiContentProvider _provider = AnkiContentProvider();
+
+  /// Push a card to AnkiDroid and return the card with its Anki note ID set.
   ///
   /// [deckName] — which deck to add to (created if doesn't exist)
   /// [modelName] — which note type to use (must exist in AnkiDroid)
   /// [tags] — tags to attach (e.g. ["N5", "verb"])
   ///
-  /// Returns true if the intent was sent successfully.
-  Future<bool> addCard(
+  /// Returns the card with [ankiNoteId] populated if the content provider
+  /// is available, or null if the push failed.
+  Future<AnkiCard?> addCard(
     AnkiCard card, {
     String deckName = _defaultDeckName,
     String modelName = _defaultModelName,
@@ -27,6 +34,7 @@ class AnkiService {
     final allTags = <String>[
       if (card.jlptLevel != null) card.jlptLevel!,
       if (card.partOfSpeech.isNotEmpty) card.partOfSpeech,
+      'rotation-l${card.rotationLevel}',
       ...?tags,
     ];
 
@@ -45,19 +53,51 @@ class AnkiService {
 
     try {
       await intent.launch();
-      return true;
+
+      // Wait a moment for AnkiDroid to write the note, then query its ID
+      await Future.delayed(const Duration(milliseconds: 500));
+      final noteId = await _provider.findNoteId(
+        word: card.word,
+        sentence: card.sentence,
+      );
+
+      return AnkiCard(
+        id: card.id,
+        word: card.word,
+        reading: card.reading,
+        sentence: card.sentence,
+        sentenceReading: card.sentenceReading,
+        sentenceTranslation: card.sentenceTranslation,
+        meaning: card.meaning,
+        partOfSpeech: card.partOfSpeech,
+        etymology: card.etymology,
+        funFact: card.funFact,
+        jlptLevel: card.jlptLevel,
+        pitchAccent: card.pitchAccent,
+        nuance: card.nuance,
+        createdAt: card.createdAt,
+        ankiNoteId: noteId,
+        rotationLevel: card.rotationLevel,
+        parentCardId: card.parentCardId,
+      );
     } catch (e) {
-      // AnkiDroid not installed or API not available
-      return false;
+      return null;
     }
   }
+
+  /// Delete a note from AnkiDroid by its ID.
+  Future<bool> deleteNote(int noteId) => _provider.deleteNote(noteId);
 
   /// Check if AnkiDroid is installed and its API is available.
   Future<bool> isAvailable() async {
     try {
       final intent = AndroidIntent(
         action: 'com.ichi2.anki.api.ADD_NOTE',
-        arguments: {'deckName': '__test__', 'modelName': '__test__', 'fields': ['', '', '', '', '', '', '', '']},
+        arguments: {
+          'deckName': '__test__',
+          'modelName': '__test__',
+          'fields': ['', '', '', '', '', '', '', ''],
+        },
         flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
       );
       await intent.launch();
@@ -95,6 +135,7 @@ class AnkiService {
     if (card.nuance != null) {
       notes.add('Nuance: ${card.nuance}');
     }
+    notes.add('Rotation: Level ${card.rotationLevel}');
 
     return [
       card.word,

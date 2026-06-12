@@ -112,6 +112,76 @@ Rules:
 - Return ONLY valid JSON, no markdown wrapping''';
   }
 
+  /// Generate a rotated sentence at a higher difficulty level.
+  Future<AnkiCard> generateRotatedCard({
+    required AnkiCard originalCard,
+    required int targetLevel,
+  }) async {
+    final config = RotationConfig.levels[targetLevel];
+    final styleDesc = config?.styleDescription ?? 'natural Japanese';
+    final prompt = _buildRotationPrompt(originalCard, targetLevel, styleDesc);
+    final rawResponse = await _callApi(prompt);
+    return _parseRotationResponse(rawResponse, originalCard, targetLevel);
+  }
+
+  String _buildRotationPrompt(
+      AnkiCard original, int targetLevel, String styleDesc) {
+    return '''You are a Japanese language tutor creating an upgraded flashcard.
+
+Original card:
+- Word: ${original.word} (${original.reading})
+- Meaning: ${original.meaning} (${original.partOfSpeech})
+- Current sentence (Level ${original.rotationLevel}): ${original.sentence}
+- Translation: ${original.sentenceTranslation}
+
+The learner has mastered the simple version. Create a Level $targetLevel sentence.
+Style: $styleDesc
+
+Return JSON:
+{
+  "sentence": "新しい日本語の例文",
+  "sentence_reading": "あたらしいにほんごのれいぶん",
+  "sentence_translation": "A new Japanese example sentence.",
+  "tidbit": "A new interesting fact or cultural note (different from the original)."
+}
+
+Rules:
+- The new sentence MUST be noticeably harder than the original
+- Level 2: natural conversational Japanese, slightly longer, may use casual forms
+- Level 3: authentic Japanese — could be from news, literature, or real conversation with idioms
+- Keep the same word and meaning, just a harder sentence
+- tidbit should be fresh — don't repeat the original fun fact
+- Return ONLY valid JSON, no markdown wrapping''';
+  }
+
+  AnkiCard _parseRotationResponse(
+      String raw, AnkiCard original, int targetLevel) {
+    String jsonStr = raw.trim();
+    if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replaceFirst(RegExp(r'^```\w*\n?'), '');
+      jsonStr = jsonStr.replaceFirst(RegExp(r'\n?```$'), '');
+    }
+
+    final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+    return AnkiCard(
+      word: original.word,
+      reading: original.reading,
+      sentence: data['sentence'] as String,
+      sentenceReading: data['sentence_reading'] as String,
+      sentenceTranslation: data['sentence_translation'] as String,
+      meaning: original.meaning,
+      partOfSpeech: original.partOfSpeech,
+      etymology: original.etymology,
+      funFact: data['tidbit'] as String?,
+      jlptLevel: original.jlptLevel,
+      pitchAccent: original.pitchAccent,
+      nuance: original.nuance,
+      rotationLevel: targetLevel,
+      parentCardId: original.parentCardId ?? original.id,
+    );
+  }
+
   Future<String> _callApi(String prompt) async {
     // OpenAI-compatible chat completions API
     final body = jsonEncode({

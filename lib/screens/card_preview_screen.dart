@@ -30,7 +30,7 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
     });
 
     final anki = AnkiService();
-    final success = await anki.addCard(
+    final pushedCard = await anki.addCard(
       widget.card,
       deckName: widget.settings.deckName,
       modelName: widget.settings.ankiModelName,
@@ -38,8 +38,8 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
 
     setState(() {
       _pushing = false;
-      _pushed = success;
-      if (!success) {
+      _pushed = pushedCard != null;
+      if (pushedCard == null) {
         _error = 'AnkiDroid not available. Is it installed?';
       }
     });
@@ -89,6 +89,31 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
                       color: theme.colorScheme.onSurface.withAlpha(120),
                     ),
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Rotation info
+            _section(
+              'Sentence Difficulty',
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _field('Level', '${card.rotationLevel} — ${_levelLabel(card.rotationLevel)}'),
+                  if (card.nextRotationLevel != null)
+                    _field('Next rotation',
+                        'Level ${card.nextRotationLevel} (${_levelLabel(card.nextRotationLevel!)}) '
+                        'in ~${_daysUntilRotation(card)}'),
+                  if (card.rotationLevel >= RotationConfig.maxLevel)
+                    const Text(
+                      '✓ Max difficulty reached',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -243,4 +268,19 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
           ],
         ),
       );
+
+  String _levelLabel(int level) {
+    final config = RotationConfig.levels[level];
+    return config?.label ?? 'Unknown';
+  }
+
+  String _daysUntilRotation(AnkiCard card) {
+    final config = RotationConfig.levels[card.rotationLevel];
+    if (config == null) return 'N/A';
+    final elapsed = DateTime.now().difference(card.createdAt);
+    final remaining = config.triggerAfter - elapsed;
+    if (remaining.isNegative) return 'now';
+    if (remaining.inDays > 0) return '${remaining.inDays}d';
+    return '${remaining.inHours}h';
+  }
 }

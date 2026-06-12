@@ -15,6 +15,11 @@ void main() async {
 
   final settings = await SettingsService.create();
 
+  // Schedule periodic rotation check (runs every 6 hours)
+  if (settings.isConfigured) {
+    await scheduleRotationCheck();
+  }
+
   runApp(SimpleSentenceApp(settings: settings));
 }
 
