@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:workmanager/workmanager.dart';
+import 'services/audio_service.dart';
 import 'services/settings_service.dart';
 import 'services/workmanager_service.dart';
 import 'screens/home_screen.dart';
@@ -15,6 +16,13 @@ void main() async {
   );
 
   final settings = await SettingsService.create();
+
+  // Initialize audio service
+  final audio = AudioService();
+  await audio.init();
+  if (settings.musicEnabled) {
+    await audio.toggleMusic(true);
+  }
 
   // Schedule periodic rotation check (runs every 6 hours)
   if (settings.isConfigured) {

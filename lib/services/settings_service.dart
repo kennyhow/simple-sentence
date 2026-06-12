@@ -10,6 +10,7 @@ class SettingsService {
   static const _keyModelName = 'anki_model_name';
   static const _keyDefaultTemplate = 'default_template';
   static const _keyThemeMode = 'theme_mode';
+  static const _keyMusicEnabled = 'music_enabled';
 
   final SharedPreferences _prefs;
 
@@ -78,6 +79,12 @@ class SettingsService {
     };
     _prefs.setString(_keyThemeMode, value);
   }
+
+  // --- Music settings ---
+
+  bool get musicEnabled => _prefs.getBool(_keyMusicEnabled) ?? false;
+
+  set musicEnabled(bool value) => _prefs.setBool(_keyMusicEnabled, value);
 
   /// Template presets that inject context into the LLM prompt.
   static const Map<String, String> templates = {

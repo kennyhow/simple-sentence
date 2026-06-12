@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/audio_service.dart';
 import '../services/settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -99,6 +100,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onSelectionChanged: (modes) {
               setState(() => _themeMode = modes.first);
             },
+          ),
+          const SizedBox(height: 24),
+
+          // --- Sound Section ---
+          _sectionHeader('Sound'),
+          SwitchListTile(
+            title: const Text('Background Music'),
+            subtitle: const Text('Chiptune bunny theme'),
+            value: widget.settings.musicEnabled,
+            onChanged: (value) {
+              setState(() => widget.settings.musicEnabled = value);
+              AudioService().toggleMusic(value);
+            },
+            secondary: const Icon(Icons.music_note),
           ),
           const SizedBox(height: 24),
 
