@@ -24,10 +24,27 @@ void main() async {
   runApp(SimpleSentenceApp(settings: settings));
 }
 
-class SimpleSentenceApp extends StatelessWidget {
+class SimpleSentenceApp extends StatefulWidget {
   final SettingsService settings;
 
   const SimpleSentenceApp({super.key, required this.settings});
+
+  @override
+  State<SimpleSentenceApp> createState() => _SimpleSentenceAppState();
+}
+
+class _SimpleSentenceAppState extends State<SimpleSentenceApp> {
+  late ThemeMode _themeMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _themeMode = widget.settings.themeMode;
+  }
+
+  void _onThemeChanged(ThemeMode mode) {
+    setState(() => _themeMode = mode);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,8 +53,11 @@ class SimpleSentenceApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: BunnyTheme.lightTheme,
       darkTheme: BunnyTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      home: HomeScreen(settings: settings),
+      themeMode: _themeMode,
+      home: HomeScreen(
+        settings: widget.settings,
+        onThemeChanged: _onThemeChanged,
+      ),
     );
   }
 }

@@ -3,8 +3,9 @@ import '../services/settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final SettingsService settings;
+  final ValueChanged<ThemeMode>? onThemeChanged;
 
-  const SettingsScreen({super.key, required this.settings});
+  const SettingsScreen({super.key, required this.settings, this.onThemeChanged});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -17,6 +18,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _deckController;
   late TextEditingController _ankiModelController;
   bool _showKey = false;
+  late ThemeMode _themeMode;
 
   @override
   void initState() {
@@ -31,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         TextEditingController(text: widget.settings.deckName);
     _ankiModelController =
         TextEditingController(text: widget.settings.ankiModelName);
+    _themeMode = widget.settings.themeMode;
   }
 
   @override
@@ -49,6 +52,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     widget.settings.model = _modelController.text.trim();
     widget.settings.deckName = _deckController.text.trim();
     widget.settings.ankiModelName = _ankiModelController.text.trim();
+    widget.settings.themeMode = _themeMode;
+    widget.onThemeChanged?.call(_themeMode);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Settings saved')),
     );
@@ -70,6 +75,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // --- Appearance Section ---
+          _sectionHeader('Appearance'),
+          SegmentedButton<ThemeMode>(
+            segments: const [
+              ButtonSegment(
+                value: ThemeMode.system,
+                icon: Icon(Icons.brightness_auto),
+                label: Text('System'),
+              ),
+              ButtonSegment(
+                value: ThemeMode.light,
+                icon: Icon(Icons.light_mode),
+                label: Text('Light'),
+              ),
+              ButtonSegment(
+                value: ThemeMode.dark,
+                icon: Icon(Icons.dark_mode),
+                label: Text('Dark'),
+              ),
+            ],
+            selected: {_themeMode},
+            onSelectionChanged: (modes) {
+              setState(() => _themeMode = modes.first);
+            },
+          ),
+          const SizedBox(height: 24),
+
           // --- API Section ---
           _sectionHeader('LLM API'),
           TextField(

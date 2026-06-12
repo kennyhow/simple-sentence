@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Persisted app settings.
@@ -8,6 +9,7 @@ class SettingsService {
   static const _keyDeckName = 'deck_name';
   static const _keyModelName = 'anki_model_name';
   static const _keyDefaultTemplate = 'default_template';
+  static const _keyThemeMode = 'theme_mode';
 
   final SharedPreferences _prefs;
 
@@ -50,6 +52,29 @@ class SettingsService {
 
   set defaultTemplate(String value) =>
       _prefs.setString(_keyDefaultTemplate, value);
+
+  // --- Theme settings ---
+
+  ThemeMode get themeMode {
+    final value = _prefs.getString(_keyThemeMode);
+    switch (value) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  set themeMode(ThemeMode mode) {
+    final value = switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      _ => 'system',
+    };
+    _prefs.setString(_keyThemeMode, value);
+  }
 
   /// Template presets that inject context into the LLM prompt.
   static const Map<String, String> templates = {

@@ -16,8 +16,9 @@ import 'history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final SettingsService settings;
+  final ValueChanged<ThemeMode>? onThemeChanged;
 
-  const HomeScreen({super.key, required this.settings});
+  const HomeScreen({super.key, required this.settings, this.onThemeChanged});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -224,7 +225,10 @@ class _HomeScreenState extends State<HomeScreen> {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => SettingsScreen(settings: widget.settings),
+                  builder: (_) => SettingsScreen(
+                    settings: widget.settings,
+                    onThemeChanged: widget.onThemeChanged,
+                  ),
                 ),
               );
               setState(() {});
