@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/card_models.dart';
+import 'settings_service.dart';
 
 /// Generic LLM service — provider-agnostic, configured via settings.
 class LlmService {
@@ -36,11 +37,24 @@ class LlmService {
   }
 
   String _buildLookupPrompt(LookupRequest request) {
-    final contextHint =
-        request.context != null ? '\nContext/preference: ${request.context}' : '';
+    // Resolve template context from the template name
+    final templateContext = request.templateName != null
+        ? SettingsService.templates[request.templateName] ?? ''
+        : '';
+
+    // Combine template context with user-provided context
+    final contextParts = <String>[];
+    if (templateContext.isNotEmpty) contextParts.add(templateContext);
+    if (request.context != null && request.context!.isNotEmpty) {
+      contextParts.add(request.context!);
+    }
+    final contextHint = contextParts.isNotEmpty
+        ? '\nContext/preference: ${contextParts.join("; ")}'
+        : '';
+
     return '''You are a Japanese language tutor. The user is learning Japanese (Japanese → English).
 
-Given the input "$request.query", identify the most common Japanese words this could refer to.$contextHint
+Given the input "${request.query}", identify the most common Japanese words this could refer to.$contextHint
 
 Return a JSON array of candidate words. For each word, include multiple common usages/meanings. Format:
 

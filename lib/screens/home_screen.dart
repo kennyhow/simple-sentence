@@ -299,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       // Template selector
                       DropdownButtonFormField<String>(
-                        initialValue: _selectedTemplate,
+                        value: _selectedTemplate,
                         decoration: const InputDecoration(
                           labelText: 'Template',
                         ),
