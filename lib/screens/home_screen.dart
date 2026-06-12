@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -34,6 +35,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<EmojiRainOverlayState> _emojiRainKey = GlobalKey();
   final GlobalKey<ScreenShakeState> _shakeKey = GlobalKey();
   final _random = Random();
+  Timer? _idleTimer;
+  static const _idleTimeout = Duration(seconds: 30);
 
   static const _bunnyPhrases = [
     'ふわふわ！',
@@ -49,13 +52,43 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _resetIdleTimer();
+  }
+
+  @override
   void dispose() {
+    _idleTimer?.cancel();
     _queryController.dispose();
     _contextController.dispose();
     super.dispose();
   }
 
+  void _resetIdleTimer() {
+    _idleTimer?.cancel();
+    if (_bunnyState == BunnyState.sleeping) {
+      _wakeUp();
+    }
+    _idleTimer = Timer(_idleTimeout, () {
+      if (mounted && _bunnyState == BunnyState.idle) {
+        setState(() {
+          _bunnyState = BunnyState.sleeping;
+          _bunnySpeech = 'zzz...';
+        });
+      }
+    });
+  }
+
+  void _wakeUp() {
+    setState(() {
+      _bunnyState = BunnyState.idle;
+      _bunnySpeech = null;
+    });
+  }
+
   void _onQueryChanged() {
+    _resetIdleTimer();
     setState(() {
       if (_queryController.text.isNotEmpty) {
         _bunnyState = BunnyState.hop;
@@ -68,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _celebrate({String? message}) {
+    _resetIdleTimer();
     setState(() {
       _bunnyState = BunnyState.celebrate;
       _bunnySpeech = message ?? 'やった！🎉';
@@ -85,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _lookup() async {
+    _resetIdleTimer();
     final query = _queryController.text.trim();
     if (query.isEmpty) return;
 
@@ -214,6 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     speechBubble: _bunnySpeech,
                     onSecretTap: () => _celebrate(message: 'ひみつ！🎊'),
                     onTap: () {
+                      _resetIdleTimer();
                       final phrase = _bunnyPhrases[_random.nextInt(_bunnyPhrases.length)];
                       setState(() {
                         _bunnyState = BunnyState.hop;
