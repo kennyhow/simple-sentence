@@ -148,7 +148,14 @@ class _EmojiPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      canvas.save();
+      canvas.saveLayer(
+        Rect.fromCenter(
+          center: Offset(p.x * size.width, p.y * size.height),
+          width: tp.width + 4,
+          height: tp.height + 4,
+        ),
+        Paint()..color = Colors.white.withValues(alpha: p.opacity),
+      );
       canvas.translate(p.x * size.width, p.y * size.height);
       canvas.rotate(p.rotation);
       tp.paint(

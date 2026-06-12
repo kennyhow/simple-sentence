@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/card_models.dart';
+import '../services/anki_service.dart';
 import '../services/settings_service.dart';
 import 'card_preview_screen.dart';
 
@@ -20,6 +21,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   bool _loading = true;
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  String? _retryingCardId;
 
   @override
   void initState() {
@@ -49,6 +51,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
         }).toList();
       }
     });
+  }
+
+  Future<void> _retryPush(AnkiCard card) async {
+    setState(() => _retryingCardId = card.id);
+
+    final anki = AnkiService();
+    final pushedCard = await anki.addCard(
+      card,
+      deckName: widget.settings.deckName,
+      modelName: widget.settings.ankiModelName,
+    );
+
+    if (pushedCard != null && mounted) {
+      // Update the card in history with the new note ID
+      final prefs = await SharedPreferences.getInstance();
+      final history = prefs.getStringList('card_history') ?? [];
+      final updatedHistory = history.map((raw) {
+        final c = AnkiCard.fromJson(
+            jsonDecode(raw) as Map<String, dynamic>);
+        if (c.id == card.id) {
+          return jsonEncode(pushedCard.toJson());
+        }
+        return raw;
+      }).toList();
+      await prefs.setStringList('card_history', updatedHistory);
+      await _loadHistory();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Card pushed to AnkiDroid!')),
+        );
+      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('AnkiDroid not available. Is it installed?'),
+        ),
+      );
+    }
+
+    setState(() => _retryingCardId = null);
   }
 
   Future<void> _loadHistory() async {
@@ -338,6 +380,29 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   fontSize: 10,
                                   color: theme.colorScheme.error.withAlpha(150),
                                 ),
+                              ),
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                height: 22,
+                                child: _retryingCardId == card.id
+                                    ? const Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 6),
+                                        child: SizedBox(
+                                          width: 12,
+                                          height: 12,
+                                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                                        ),
+                                      )
+                                    : TextButton.icon(
+                                        onPressed: () => _retryPush(card),
+                                        icon: const Icon(Icons.refresh, size: 12),
+                                        label: const Text('Retry', style: TextStyle(fontSize: 10)),
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      ),
                               ),
                             ],
                             const Spacer(),
