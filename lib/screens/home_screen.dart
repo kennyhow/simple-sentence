@@ -114,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (milestone) {
         final streak = data['current_streak'] as int? ?? 0;
         _streakKey.currentState?.celebrateMilestone(streak);
-        _celebrate(message: '${streak} day streak! 🎉');
+        _celebrate(message: '$streak day streak! 🎉');
         // Clear the update so we don't re-trigger
         await prefs.remove('last_streak_update');
       } else if (extended) {
@@ -363,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       // Template selector
                       DropdownButtonFormField<String>(
-                        value: _selectedTemplate,
+                        initialValue: _selectedTemplate,
                         decoration: const InputDecoration(
                           labelText: 'Template',
                         ),

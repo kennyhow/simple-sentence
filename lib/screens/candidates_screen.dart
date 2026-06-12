@@ -148,7 +148,21 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
               ),
             ),
           Expanded(
-            child: ListView.builder(
+            child: RadioGroup<String>(
+              groupValue: _expandedWordId,
+              onChanged: (v) {
+                setState(() {
+                  _expandedWordId = v;
+                  if (v != null) {
+                    final word = widget.candidates.firstWhere((w) => w.id == v);
+                    if (_selectedUsages[word.id] == null ||
+                        _selectedUsages[word.id]!.isEmpty) {
+                      _selectedUsages[word.id] = {word.usages.first.id};
+                    }
+                  }
+                });
+              },
+              child: ListView.builder(
               padding: const EdgeInsets.all(8),
               itemCount: widget.candidates.length,
               itemBuilder: (context, index) {
@@ -166,19 +180,6 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
                       ListTile(
                         leading: Radio<String>(
                           value: word.id,
-                          groupValue: _expandedWordId,
-                          onChanged: (v) {
-                            setState(() {
-                              _expandedWordId = v;
-                              // Auto-select first usage if none selected
-                              if (_selectedUsages[word.id] == null ||
-                                  _selectedUsages[word.id]!.isEmpty) {
-                                _selectedUsages[word.id] = {
-                                  word.usages.first.id
-                                };
-                              }
-                            });
-                          },
                         ),
                         title: RichText(
                           text: TextSpan(
@@ -338,6 +339,7 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
                   ),
                 );
               },
+            ),
             ),
           ),
         ],

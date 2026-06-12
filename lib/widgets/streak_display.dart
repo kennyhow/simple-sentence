@@ -18,10 +18,10 @@ class StreakDisplay extends StatefulWidget {
   });
 
   @override
-  State<StreakDisplay> createState() => _StreakDisplayState();
+  State<StreakDisplay> createState() => StreakDisplayState();
 }
 
-class _StreakDisplayState extends State<StreakDisplay>
+class StreakDisplayState extends State<StreakDisplay>
     with SingleTickerProviderStateMixin {
   late AnimationController _bumpController;
   late Animation<double> _bump;

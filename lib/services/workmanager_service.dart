@@ -249,8 +249,8 @@ Future<void> scheduleLookupWord({
     _taskLookupWord,
     inputData: {
       'query': query,
-      if (context != null) 'context': context,
-      if (templateName != null) 'template_name': templateName,
+      'context': ?context,
+      'template_name': ?templateName,
     },
     constraints: Constraints(
       networkType: NetworkType.connected,
@@ -271,7 +271,7 @@ Future<void> scheduleGenerateCard({
     inputData: {
       'word': jsonEncode(word.toJson()),
       'selected_usages': jsonEncode(selectedUsages.map((u) => u.toJson()).toList()),
-      if (extraNotes != null) 'extra_notes': extraNotes,
+      'extra_notes': ?extraNotes,
     },
     constraints: Constraints(
       networkType: NetworkType.connected,
