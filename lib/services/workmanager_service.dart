@@ -6,6 +6,7 @@ import '../models/card_models.dart';
 import 'llm_service.dart';
 import 'anki_service.dart';
 import 'settings_service.dart';
+import 'streak_service.dart';
 
 /// Background task names registered with WorkManager.
 const _taskLookupWord = 'lookup_word';
@@ -116,10 +117,31 @@ Future<bool> _handleGenerateCard(
   if (history.length > 200) history.removeLast();
   await prefs.setStringList('card_history', history);
 
-  await _showNotification(
-    'Card ready${pushedCard != null ? " ✓" : ""}',
-    '${card.word}: ${card.sentence}${pushedCard != null ? "" : " (AnkiDroid not available)"}',
-  );
+  // Record streak
+  final streakService = StreakService(prefs);
+  final streakUpdate = await streakService.recordCardGenerated();
+
+  // Store streak update for UI to pick up
+  await prefs.setString('last_streak_update', jsonEncode({
+    'current_streak': streakUpdate.currentStreak,
+    'best_streak': streakUpdate.bestStreak,
+    'cards_today': streakUpdate.cardsToday,
+    'streak_extended': streakUpdate.streakExtended,
+    'streak_reset': streakUpdate.streakReset,
+    'milestone_reached': streakUpdate.milestoneReached,
+  }));
+
+  // Build notification message
+  var title = 'Card ready${pushedCard != null ? " ✓" : ""}';
+  if (streakUpdate.streakExtended) {
+    title = '🔥 $title';
+  }
+  var body = '${card.word}: ${card.sentence}${pushedCard != null ? "" : " (AnkiDroid not available)"}';
+  if (streakUpdate.milestoneReached) {
+    body = '$body\n${StreakService.milestoneMessage(streakUpdate.currentStreak)}';
+  }
+
+  await _showNotification(title, body);
 
   return true;
 }

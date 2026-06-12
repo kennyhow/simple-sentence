@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/card_models.dart';
 import '../services/settings_service.dart';
+import '../services/streak_service.dart';
 import '../services/workmanager_service.dart';
 import '../widgets/bunny_mascot.dart';
 import '../widgets/carrot_counter.dart';
 import '../widgets/emoji_rain.dart';
 import '../widgets/screen_shake.dart';
+import '../widgets/streak_display.dart';
 import 'candidates_screen.dart';
 import 'settings_screen.dart';
 import 'history_screen.dart';
@@ -35,8 +37,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<CarrotCounterState> _carrotKey = GlobalKey();
   final GlobalKey<EmojiRainOverlayState> _emojiRainKey = GlobalKey();
   final GlobalKey<ScreenShakeState> _shakeKey = GlobalKey();
+  final GlobalKey<StreakDisplayState> _streakKey = GlobalKey();
+  late StreakService _streakService;
   final _random = Random();
   Timer? _idleTimer;
+  Timer? _streakPollTimer;
   static const _idleTimeout = Duration(seconds: 30);
 
   static const _bunnyPhrases = [
@@ -55,12 +60,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _streakService = StreakService(widget.settings.prefs);
     _resetIdleTimer();
+    _pollStreakUpdates();
   }
 
   @override
   void dispose() {
     _idleTimer?.cancel();
+    _streakPollTimer?.cancel();
     _queryController.dispose();
     _contextController.dispose();
     super.dispose();
@@ -85,6 +93,34 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _bunnyState = BunnyState.idle;
       _bunnySpeech = null;
+    });
+  }
+
+  /// Poll for streak updates from background tasks.
+  void _pollStreakUpdates() {
+    _streakPollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('last_streak_update');
+      if (raw == null) return;
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final milestone = data['milestone_reached'] as bool? ?? false;
+      final extended = data['streak_extended'] as bool? ?? false;
+
+      // Refresh the display
+      if (mounted) setState(() {});
+
+      // Handle streak events
+      if (milestone) {
+        final streak = data['current_streak'] as int? ?? 0;
+        _streakKey.currentState?.celebrateMilestone(streak);
+        _celebrate(message: '${streak} day streak! 🎉');
+        // Clear the update so we don't re-trigger
+        await prefs.remove('last_streak_update');
+      } else if (extended) {
+        _streakKey.currentState?.bump();
+        await prefs.remove('last_streak_update');
+      }
     });
   }
 
@@ -206,6 +242,30 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          StreakDisplay(
+            key: _streakKey,
+            streakService: _streakService,
+            onMilestoneCelebrate: () {
+              _emojiRainKey.currentState?.trigger();
+              _shakeKey.currentState?.shake();
+            },
+            onMilestoneMessage: (msg) {
+              _resetIdleTimer();
+              setState(() {
+                _bunnyState = BunnyState.celebrate;
+                _bunnySpeech = msg;
+              });
+              Future.delayed(const Duration(seconds: 4), () {
+                if (mounted) {
+                  setState(() {
+                    _bunnyState = BunnyState.idle;
+                    _bunnySpeech = null;
+                  });
+                }
+              });
+            },
+          ),
+          const SizedBox(width: 8),
           CarrotCounter(key: _carrotKey),
           const SizedBox(width: 4),
           IconButton(
@@ -384,6 +444,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               _tip('Add context for more relevant sentences.'),
                               _tip('Tap the bunny for a surprise! 🐰✨'),
                               _tip('Tap 10 times fast for a secret! 🤫'),
+                              _tip('Mine daily to build your streak! 🔥'),
                             ],
                           ),
                         ),

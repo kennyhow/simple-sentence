@@ -15,6 +15,9 @@ class SettingsService {
 
   SettingsService(this._prefs);
 
+  /// Expose prefs for services that need direct access (e.g. StreakService).
+  SharedPreferences get prefs => _prefs;
+
   // --- API settings ---
 
   String get apiUrl =>
