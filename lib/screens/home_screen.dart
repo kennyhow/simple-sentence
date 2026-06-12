@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/card_models.dart';
 import '../services/settings_service.dart';
 import '../services/workmanager_service.dart';
+import '../widgets/bunny_mascot.dart';
+import '../widgets/carrot_counter.dart';
+import '../widgets/emoji_rain.dart';
 import 'candidates_screen.dart';
 import 'settings_screen.dart';
 import 'history_screen.dart';
@@ -23,12 +26,27 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedTemplate = 'general';
   bool _isLoading = false;
   String? _error;
+  BunnyState _bunnyState = BunnyState.idle;
+  String? _bunnySpeech;
+  final GlobalKey<CarrotCounterState> _carrotKey = GlobalKey();
 
   @override
   void dispose() {
     _queryController.dispose();
     _contextController.dispose();
     super.dispose();
+  }
+
+  void _onQueryChanged() {
+    setState(() {
+      if (_queryController.text.isNotEmpty) {
+        _bunnyState = BunnyState.hop;
+        _bunnySpeech = 'おっ！';
+      } else {
+        _bunnyState = BunnyState.idle;
+        _bunnySpeech = null;
+      }
+    });
   }
 
   Future<void> _lookup() async {
@@ -43,6 +61,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _bunnyState = BunnyState.hop;
+      _bunnySpeech = 'Searching... 🐾';
     });
 
     try {
@@ -53,20 +73,19 @@ class _HomeScreenState extends State<HomeScreen> {
         templateName: _selectedTemplate != 'general' ? _selectedTemplate : null,
       );
 
-      // Poll for result (in a real app, use a stream/notification tap)
-      // For now, we wait and check SharedPreferences
       await _waitForResult(query);
     } catch (e) {
       setState(() {
         _isLoading = false;
         _error = e.toString();
+        _bunnyState = BunnyState.idle;
+        _bunnySpeech = 'Oops! 😢';
       });
     }
   }
 
   Future<void> _waitForResult(String query) async {
     final prefs = await SharedPreferences.getInstance();
-    // Poll for up to 60 seconds
     for (var i = 0; i < 60; i++) {
       await Future.delayed(const Duration(seconds: 1));
       final raw = prefs.getString('last_lookup_result');
@@ -77,6 +96,12 @@ class _HomeScreenState extends State<HomeScreen> {
           final candidates = (data['candidates'] as List<dynamic>)
               .map((c) => CandidateWord.fromJson(c as Map<String, dynamic>))
               .toList();
+
+          setState(() {
+            _bunnyState = BunnyState.celebrate;
+            _bunnySpeech = 'Found ${candidates.length}! 🎉';
+          });
+
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -87,7 +112,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           );
-          setState(() => _isLoading = false);
+          setState(() {
+            _isLoading = false;
+            _bunnyState = BunnyState.idle;
+            _bunnySpeech = null;
+          });
           return;
         }
       }
@@ -95,6 +124,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _isLoading = false;
       _error = 'Timed out waiting for result. Check notification tray.';
+      _bunnyState = BunnyState.idle;
+      _bunnySpeech = null;
     });
   }
 
@@ -102,8 +133,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Simple Sentence'),
+        title: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('🐰 '),
+            Text('Simple Sentence'),
+          ],
+        ),
         actions: [
+          CarrotCounter(key: _carrotKey),
+          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'History',
@@ -124,116 +163,156 @@ class _HomeScreenState extends State<HomeScreen> {
                   builder: (_) => SettingsScreen(settings: widget.settings),
                 ),
               );
-              setState(() {}); // refresh in case settings changed
+              setState(() {});
             },
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      body: EmojiRainOverlay(
+        active: false,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Query input
-            TextField(
-              controller: _queryController,
-              decoration: InputDecoration(
-                labelText: 'Word or kana',
-                hintText: 'e.g. 食べる or たべる',
-                border: const OutlineInputBorder(),
-                suffixIcon: _queryController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _queryController.clear();
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _lookup(),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-
-            // Template selector
-            DropdownButtonFormField<String>(
-              initialValue: _selectedTemplate,
-              decoration: const InputDecoration(
-                labelText: 'Template',
-                border: OutlineInputBorder(),
-              ),
-              items: SettingsService.templates.entries.map((e) {
-                final label = e.key[0].toUpperCase() + e.key.substring(1);
-                return DropdownMenuItem(value: e.key, child: Text(label));
-              }).toList(),
-              onChanged: (v) => setState(() => _selectedTemplate = v ?? 'general'),
-            ),
-            const SizedBox(height: 12),
-
-            // Context / extra notes
-            TextField(
-              controller: _contextController,
-              decoration: const InputDecoration(
-                labelText: 'Context (optional)',
-                hintText: 'e.g. from anime, business, casual...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 16),
-
-            // Lookup button
+            // Bunny mascot area
             SizedBox(
-              height: 48,
-              child: FilledButton.icon(
-                onPressed: _isLoading ? null : _lookup,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.search),
-                label: Text(_isLoading ? 'Looking up...' : 'Look Up'),
-              ),
-            ),
-
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onErrorContainer,
-                    ),
-                  ),
+              height: 110,
+              child: Center(
+                child: BunnyMascot(
+                  state: _bunnyState,
+                  size: 90,
+                  speechBubble: _bunnySpeech,
+                  onTap: () {
+                    setState(() {
+                      _bunnyState = BunnyState.hop;
+                      _bunnySpeech = 'ふわふわ！';
+                    });
+                    Future.delayed(const Duration(seconds: 1), () {
+                      if (mounted) {
+                        setState(() {
+                          _bunnyState = BunnyState.idle;
+                          _bunnySpeech = null;
+                        });
+                      }
+                    });
+                  },
                 ),
               ),
-            ],
+            ),
 
-            const SizedBox(height: 24),
-
-            // Tips
-            Card(
-              child: Padding(
+            // Main content
+            Expanded(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Tips',
-                      style: Theme.of(context).textTheme.titleSmall,
+                    // Query input
+                    TextField(
+                      controller: _queryController,
+                      decoration: InputDecoration(
+                        labelText: 'Word or kana',
+                        hintText: 'e.g. 食べる or たべる',
+                        suffixIcon: _queryController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _queryController.clear();
+                                  _onQueryChanged();
+                                },
+                              )
+                            : null,
+                      ),
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => _lookup(),
+                      onChanged: (_) => _onQueryChanged(),
                     ),
-                    const SizedBox(height: 8),
-                    _tip('Type kana (e.g. はし) to see all possible kanji forms.'),
-                    _tip('Type kanji (e.g. 食べる) to get detailed usages.'),
-                    _tip('Add context to get more relevant example sentences.'),
-                    _tip('The lookup runs in the background — you can close the app.'),
+                    const SizedBox(height: 12),
+
+                    // Template selector
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedTemplate,
+                      decoration: const InputDecoration(
+                        labelText: 'Template',
+                      ),
+                      items: SettingsService.templates.entries.map((e) {
+                        final label =
+                            e.key[0].toUpperCase() + e.key.substring(1);
+                        return DropdownMenuItem(
+                            value: e.key, child: Text(label));
+                      }).toList(),
+                      onChanged: (v) =>
+                          setState(() => _selectedTemplate = v ?? 'general'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Context / extra notes
+                    TextField(
+                      controller: _contextController,
+                      decoration: const InputDecoration(
+                        labelText: 'Context (optional)',
+                        hintText: 'e.g. from anime, business, casual...',
+                      ),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Lookup button
+                    SizedBox(
+                      height: 48,
+                      child: FilledButton.icon(
+                        onPressed: _isLoading ? null : _lookup,
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              )
+                            : const Text('🔍', style: TextStyle(fontSize: 18)),
+                        label: Text(
+                            _isLoading ? 'Looking up...' : 'Look Up 🥕'),
+                      ),
+                    ),
+
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Card(
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Text(
+                            _error!,
+                            style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onErrorContainer,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+
+                    // Tips
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '🐰 Tips',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 8),
+                            _tip('Type kana (e.g. はし) to see all kanji forms.'),
+                            _tip('Type kanji (e.g. 食べる) for detailed usages.'),
+                            _tip('Add context for more relevant sentences.'),
+                            _tip('Tap the bunny! 🐰✨'),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -249,8 +328,9 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('• '),
-            Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
+            const Text('🥕 '),
+            Expanded(
+                child: Text(text, style: const TextStyle(fontSize: 13))),
           ],
         ),
       );

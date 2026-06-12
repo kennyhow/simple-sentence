@@ -3,6 +3,7 @@ import 'package:workmanager/workmanager.dart';
 import 'services/settings_service.dart';
 import 'services/workmanager_service.dart';
 import 'screens/home_screen.dart';
+import 'theme/bunny_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,28 +32,10 @@ class SimpleSentenceApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Simple Sentence',
+      title: '🐰 Simple Sentence',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4A90D9),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4A90D9),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-        ),
-      ),
+      theme: BunnyTheme.lightTheme,
+      darkTheme: BunnyTheme.darkTheme,
       themeMode: ThemeMode.system,
       home: HomeScreen(settings: settings),
     );
