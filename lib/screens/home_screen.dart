@@ -155,6 +155,22 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _triggerEating() {
+    _resetIdleTimer();
+    setState(() {
+      _bunnyState = BunnyState.eating;
+      _bunnySpeech = 'もぐもぐ！🥕';
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _bunnyState = BunnyState.idle;
+          _bunnySpeech = null;
+        });
+      }
+    });
+  }
+
   Future<void> _lookup() async {
     _resetIdleTimer();
     final query = _queryController.text.trim();
@@ -213,7 +229,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 query: query,
                 candidates: candidates,
                 settings: widget.settings,
-                onCardGenerated: () => _carrotKey.currentState?.addCarrot(),
+                onCardGenerated: () {
+                  _carrotKey.currentState?.addCarrot();
+                  _triggerEating();
+                },
               ),
             ),
           );

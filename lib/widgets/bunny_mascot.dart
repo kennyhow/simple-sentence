@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 ///   BunnyMascot(state: BunnyState.idle)
 ///   BunnyMascot(state: BunnyState.hop)
 ///   BunnyMascot(state: BunnyState.celebrate)
-enum BunnyState { idle, hop, celebrate, sleeping }
+enum BunnyState { idle, hop, celebrate, sleeping, eating }
 
 class BunnyMascot extends StatefulWidget {
   final BunnyState state;
@@ -85,6 +85,11 @@ class _BunnyMascotState extends State<BunnyMascot>
         case BunnyState.celebrate:
           _controller
             ..duration = const Duration(milliseconds: 600)
+            ..repeat(reverse: true);
+          break;
+        case BunnyState.eating:
+          _controller
+            ..duration = const Duration(milliseconds: 300)
             ..repeat(reverse: true);
           break;
       }
@@ -311,6 +316,35 @@ class _BunnyPainter extends CustomPainter {
       canvas.drawArc(
         Rect.fromCenter(center: Offset(cx, cy + 12), width: 8, height: 6),
         0, pi, false, mouthPaint,
+      );
+    } else if (state == BunnyState.eating) {
+      // Munching mouth — opens and closes with animation
+      final munch = sin(animationValue * pi * 2) * 0.5 + 0.5; // 0..1
+      final mouthHeight = 2.0 + munch * 4.0;
+      canvas.drawArc(
+        Rect.fromCenter(center: Offset(cx, cy + 12), width: 6, height: mouthHeight),
+        0, pi, false, mouthPaint,
+      );
+      // Tiny carrot near mouth
+      final carrotX = cx - 10;
+      final carrotY = cy + 10 - munch * 3; // bobs up/down with munch
+      final carrotPaint = Paint()
+        ..color = const Color(0xFFFF8C00)
+        ..style = PaintingStyle.fill;
+      final carrotTopPaint = Paint()
+        ..color = const Color(0xFF4CAF50)
+        ..style = PaintingStyle.fill;
+      // Carrot body (triangle)
+      final carrotPath = Path()
+        ..moveTo(carrotX, carrotY - 4)
+        ..lineTo(carrotX - 2, carrotY + 4)
+        ..lineTo(carrotX + 2, carrotY + 4)
+        ..close();
+      canvas.drawPath(carrotPath, carrotPaint);
+      // Carrot top (little green tuft)
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(carrotX, carrotY - 5), width: 4, height: 2),
+        carrotTopPaint,
       );
     } else if (isSleeping) {
       // Tiny relaxed mouth
