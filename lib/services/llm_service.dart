@@ -257,7 +257,17 @@ Rules:
     }
 
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-    final primaryUsage = selectedUsages.first;
+
+    // Combine all selected usages into the card fields
+    final combinedMeaning = selectedUsages.map((u) => u.meaning).join(' / ');
+    final combinedPos = selectedUsages
+        .map((u) => u.partOfSpeech)
+        .toSet()
+        .join(' / ');
+    final combinedNuance = selectedUsages
+        .map((u) => u.nuance)
+        .where((n) => n != null && n.isNotEmpty)
+        .join(' / ');
 
     return AnkiCard(
       word: word.word,
@@ -265,13 +275,13 @@ Rules:
       sentence: data['sentence'] as String,
       sentenceReading: data['sentence_reading'] as String,
       sentenceTranslation: data['sentence_translation'] as String,
-      meaning: primaryUsage.meaning,
-      partOfSpeech: primaryUsage.partOfSpeech,
+      meaning: combinedMeaning,
+      partOfSpeech: combinedPos,
       etymology: word.etymology,
       funFact: data['tidbit'] as String? ?? word.funFact,
       jlptLevel: word.jlptLevel,
       pitchAccent: word.pitchAccent,
-      nuance: primaryUsage.nuance,
+      nuance: combinedNuance.isNotEmpty ? combinedNuance : null,
     );
   }
 

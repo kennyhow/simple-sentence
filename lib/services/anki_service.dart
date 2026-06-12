@@ -88,24 +88,9 @@ class AnkiService {
   /// Delete a note from AnkiDroid by its ID.
   Future<bool> deleteNote(int noteId) => _provider.deleteNote(noteId);
 
-  /// Check if AnkiDroid is installed and its API is available.
-  Future<bool> isAvailable() async {
-    try {
-      final intent = AndroidIntent(
-        action: 'com.ichi2.anki.api.ADD_NOTE',
-        arguments: {
-          'deckName': '__test__',
-          'modelName': '__test__',
-          'fields': ['', '', '', '', '', '', '', ''],
-        },
-        flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
-      );
-      await intent.launch();
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
+  /// Check if AnkiDroid is installed and its content provider is accessible.
+  /// Does NOT launch any intents — uses the content provider check only.
+  Future<bool> isAvailable() => _provider.isAvailable();
 
   /// Build the fields array matching the "Japanese Sentence" note type.
   ///
