@@ -178,19 +178,11 @@ Rules:
 
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
-    return AnkiCard(
-      word: original.word,
-      reading: original.reading,
+    return original.copyWith(
       sentence: data['sentence'] as String,
       sentenceReading: data['sentence_reading'] as String,
       sentenceTranslation: data['sentence_translation'] as String,
-      meaning: original.meaning,
-      partOfSpeech: original.partOfSpeech,
-      etymology: original.etymology,
       funFact: data['tidbit'] as String?,
-      jlptLevel: original.jlptLevel,
-      pitchAccent: original.pitchAccent,
-      nuance: original.nuance,
       rotationLevel: targetLevel,
       parentCardId: original.parentCardId ?? original.id,
     );

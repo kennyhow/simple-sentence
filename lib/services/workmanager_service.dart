@@ -185,15 +185,22 @@ Future<bool> _handleRotateCards(
   return true;
 }
 
-Future<void> _showNotification(String title, String body) async {
-  final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  const androidSettings =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const initSettings =
-      InitializationSettings(android: androidSettings);
-  await flutterLocalNotificationsPlugin.initialize(initSettings);
+/// Lazy-initialized notification plugin — created once, reused across calls.
+final FlutterLocalNotificationsPlugin _notificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+bool _notificationsInitialized = false;
 
-  await flutterLocalNotificationsPlugin.show(
+Future<void> _showNotification(String title, String body) async {
+  if (!_notificationsInitialized) {
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings =
+        InitializationSettings(android: androidSettings);
+    await _notificationsPlugin.initialize(initSettings);
+    _notificationsInitialized = true;
+  }
+
+  await _notificationsPlugin.show(
     DateTime.now().millisecondsSinceEpoch ~/ 1000,
     title,
     body,

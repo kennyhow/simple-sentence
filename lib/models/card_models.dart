@@ -191,6 +191,46 @@ class AnkiCard {
   /// The next rotation level, or null if already at max.
   int? get nextRotationLevel =>
       rotationLevel < RotationConfig.levels.length ? rotationLevel + 1 : null;
+
+  /// Create a copy with optional field overrides.
+  AnkiCard copyWith({
+    String? id,
+    String? word,
+    String? reading,
+    String? sentence,
+    String? sentenceReading,
+    String? sentenceTranslation,
+    String? meaning,
+    String? partOfSpeech,
+    String? etymology,
+    String? funFact,
+    String? jlptLevel,
+    String? pitchAccent,
+    String? nuance,
+    DateTime? createdAt,
+    int? ankiNoteId,
+    int? rotationLevel,
+    String? parentCardId,
+  }) =>
+      AnkiCard(
+        id: id ?? this.id,
+        word: word ?? this.word,
+        reading: reading ?? this.reading,
+        sentence: sentence ?? this.sentence,
+        sentenceReading: sentenceReading ?? this.sentenceReading,
+        sentenceTranslation: sentenceTranslation ?? this.sentenceTranslation,
+        meaning: meaning ?? this.meaning,
+        partOfSpeech: partOfSpeech ?? this.partOfSpeech,
+        etymology: etymology ?? this.etymology,
+        funFact: funFact ?? this.funFact,
+        jlptLevel: jlptLevel ?? this.jlptLevel,
+        pitchAccent: pitchAccent ?? this.pitchAccent,
+        nuance: nuance ?? this.nuance,
+        createdAt: createdAt ?? this.createdAt,
+        ankiNoteId: ankiNoteId ?? this.ankiNoteId,
+        rotationLevel: rotationLevel ?? this.rotationLevel,
+        parentCardId: parentCardId ?? this.parentCardId,
+      );
 }
 
 /// Configuration for sentence rotation difficulty progression.

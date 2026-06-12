@@ -61,25 +61,7 @@ class AnkiService {
         sentence: card.sentence,
       );
 
-      return AnkiCard(
-        id: card.id,
-        word: card.word,
-        reading: card.reading,
-        sentence: card.sentence,
-        sentenceReading: card.sentenceReading,
-        sentenceTranslation: card.sentenceTranslation,
-        meaning: card.meaning,
-        partOfSpeech: card.partOfSpeech,
-        etymology: card.etymology,
-        funFact: card.funFact,
-        jlptLevel: card.jlptLevel,
-        pitchAccent: card.pitchAccent,
-        nuance: card.nuance,
-        createdAt: card.createdAt,
-        ankiNoteId: noteId,
-        rotationLevel: card.rotationLevel,
-        parentCardId: card.parentCardId,
-      );
+      return card.copyWith(ankiNoteId: noteId);
     } catch (e) {
       return null;
     }
