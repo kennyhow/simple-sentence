@@ -7,11 +7,13 @@ import '../services/settings_service.dart';
 class CardPreviewScreen extends StatefulWidget {
   final AnkiCard card;
   final SettingsService settings;
+  final VoidCallback? onCardPushed;
 
   const CardPreviewScreen({
     super.key,
     required this.card,
     required this.settings,
+    this.onCardPushed,
   });
 
   @override
@@ -39,7 +41,9 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
     setState(() {
       _pushing = false;
       _pushed = pushedCard != null;
-      if (pushedCard == null) {
+      if (pushedCard != null) {
+        widget.onCardPushed?.call();
+      } else {
         _error = 'AnkiDroid not available. Is it installed?';
       }
     });

@@ -14,6 +14,7 @@ class BunnyMascot extends StatefulWidget {
   final double size;
   final VoidCallback? onTap;
   final String? speechBubble;
+  final VoidCallback? onSecretTap;
 
   const BunnyMascot({
     super.key,
@@ -21,6 +22,7 @@ class BunnyMascot extends StatefulWidget {
     this.size = 80,
     this.onTap,
     this.speechBubble,
+    this.onSecretTap,
   });
 
   @override
@@ -102,6 +104,7 @@ class _BunnyMascotState extends State<BunnyMascot>
     // Secret: 10 taps triggers a mini celebration
     if (_tapCount >= 10) {
       _tapCount = 0;
+      widget.onSecretTap?.call();
       _controller
         ..duration = const Duration(milliseconds: 400)
         ..repeat(reverse: true, period: const Duration(milliseconds: 400));

@@ -12,12 +12,14 @@ class CandidatesScreen extends StatefulWidget {
   final String query;
   final List<CandidateWord> candidates;
   final SettingsService settings;
+  final VoidCallback? onCardGenerated;
 
   const CandidatesScreen({
     super.key,
     required this.query,
     required this.candidates,
     required this.settings,
+    this.onCardGenerated,
   });
 
   @override
@@ -100,6 +102,7 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
               builder: (_) => CardPreviewScreen(
                 card: card,
                 settings: widget.settings,
+                onCardPushed: widget.onCardGenerated,
               ),
             ),
           );

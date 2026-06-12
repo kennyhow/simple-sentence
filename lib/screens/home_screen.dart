@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/card_models.dart';
@@ -7,6 +8,7 @@ import '../services/workmanager_service.dart';
 import '../widgets/bunny_mascot.dart';
 import '../widgets/carrot_counter.dart';
 import '../widgets/emoji_rain.dart';
+import '../widgets/screen_shake.dart';
 import 'candidates_screen.dart';
 import 'settings_screen.dart';
 import 'history_screen.dart';
@@ -29,6 +31,22 @@ class _HomeScreenState extends State<HomeScreen> {
   BunnyState _bunnyState = BunnyState.idle;
   String? _bunnySpeech;
   final GlobalKey<CarrotCounterState> _carrotKey = GlobalKey();
+  final GlobalKey<EmojiRainOverlayState> _emojiRainKey = GlobalKey();
+  final GlobalKey<ScreenShakeState> _shakeKey = GlobalKey();
+  final _random = Random();
+
+  static const _bunnyPhrases = [
+    'ふわふわ！',
+    'ぴょんぴょん！',
+    'おいしい！',
+    'にんじん！',
+    'がんばって！',
+    'すごい！',
+    'わくわく！',
+    'えへへ〜',
+    'だいすき！',
+    'うさぎ！',
+  ];
 
   @override
   void dispose() {
@@ -45,6 +63,23 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         _bunnyState = BunnyState.idle;
         _bunnySpeech = null;
+      }
+    });
+  }
+
+  void _celebrate({String? message}) {
+    setState(() {
+      _bunnyState = BunnyState.celebrate;
+      _bunnySpeech = message ?? 'やった！🎉';
+    });
+    _emojiRainKey.currentState?.trigger();
+    _shakeKey.currentState?.shake();
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _bunnyState = BunnyState.idle;
+          _bunnySpeech = null;
+        });
       }
     });
   }
@@ -97,10 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
               .map((c) => CandidateWord.fromJson(c as Map<String, dynamic>))
               .toList();
 
-          setState(() {
-            _bunnyState = BunnyState.celebrate;
-            _bunnySpeech = 'Found ${candidates.length}! 🎉';
-          });
+          _celebrate(message: 'Found ${candidates.length}! 🎉');
 
           Navigator.push(
             context,
@@ -109,14 +141,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 query: query,
                 candidates: candidates,
                 settings: widget.settings,
+                onCardGenerated: () => _carrotKey.currentState?.addCarrot(),
               ),
             ),
           );
-          setState(() {
-            _isLoading = false;
-            _bunnyState = BunnyState.idle;
-            _bunnySpeech = null;
-          });
+          setState(() => _isLoading = false);
           return;
         }
       }
@@ -169,155 +198,162 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: EmojiRainOverlay(
+        key: _emojiRainKey,
         active: false,
-        child: Column(
-          children: [
-            // Bunny mascot area
-            SizedBox(
-              height: 110,
-              child: Center(
-                child: BunnyMascot(
-                  state: _bunnyState,
-                  size: 90,
-                  speechBubble: _bunnySpeech,
-                  onTap: () {
-                    setState(() {
-                      _bunnyState = BunnyState.hop;
-                      _bunnySpeech = 'ふわふわ！';
-                    });
-                    Future.delayed(const Duration(seconds: 1), () {
-                      if (mounted) {
-                        setState(() {
-                          _bunnyState = BunnyState.idle;
-                          _bunnySpeech = null;
-                        });
-                      }
-                    });
-                  },
+        child: ScreenShake(
+          shakeKey: _shakeKey,
+          child: Column(
+            children: [
+              // Bunny mascot area
+              SizedBox(
+                height: 110,
+                child: Center(
+                  child: BunnyMascot(
+                    state: _bunnyState,
+                    size: 90,
+                    speechBubble: _bunnySpeech,
+                    onSecretTap: () => _celebrate(message: 'ひみつ！🎊'),
+                    onTap: () {
+                      final phrase = _bunnyPhrases[_random.nextInt(_bunnyPhrases.length)];
+                      setState(() {
+                        _bunnyState = BunnyState.hop;
+                        _bunnySpeech = phrase;
+                      });
+                      Future.delayed(const Duration(seconds: 1), () {
+                        if (mounted) {
+                          setState(() {
+                            _bunnyState = BunnyState.idle;
+                            _bunnySpeech = null;
+                          });
+                        }
+                      });
+                    },
+                  ),
                 ),
               ),
-            ),
 
-            // Main content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Query input
-                    TextField(
-                      controller: _queryController,
-                      decoration: InputDecoration(
-                        labelText: 'Word or kana',
-                        hintText: 'e.g. 食べる or たべる',
-                        suffixIcon: _queryController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  _queryController.clear();
-                                  _onQueryChanged();
-                                },
-                              )
-                            : null,
+              // Main content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Query input
+                      TextField(
+                        controller: _queryController,
+                        decoration: InputDecoration(
+                          labelText: 'Word or kana',
+                          hintText: 'e.g. 食べる or たべる',
+                          suffixIcon: _queryController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _queryController.clear();
+                                    _onQueryChanged();
+                                  },
+                                )
+                              : null,
+                        ),
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => _lookup(),
+                        onChanged: (_) => _onQueryChanged(),
                       ),
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (_) => _lookup(),
-                      onChanged: (_) => _onQueryChanged(),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Template selector
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedTemplate,
-                      decoration: const InputDecoration(
-                        labelText: 'Template',
-                      ),
-                      items: SettingsService.templates.entries.map((e) {
-                        final label =
-                            e.key[0].toUpperCase() + e.key.substring(1);
-                        return DropdownMenuItem(
-                            value: e.key, child: Text(label));
-                      }).toList(),
-                      onChanged: (v) =>
-                          setState(() => _selectedTemplate = v ?? 'general'),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Context / extra notes
-                    TextField(
-                      controller: _contextController,
-                      decoration: const InputDecoration(
-                        labelText: 'Context (optional)',
-                        hintText: 'e.g. from anime, business, casual...',
-                      ),
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Lookup button
-                    SizedBox(
-                      height: 48,
-                      child: FilledButton.icon(
-                        onPressed: _isLoading ? null : _lookup,
-                        icon: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2),
-                              )
-                            : const Text('🔍', style: TextStyle(fontSize: 18)),
-                        label: Text(
-                            _isLoading ? 'Looking up...' : 'Look Up 🥕'),
-                      ),
-                    ),
-
-                    if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Card(
-                        color: Theme.of(context).colorScheme.errorContainer,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            _error!,
-                            style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onErrorContainer,
+
+                      // Template selector
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedTemplate,
+                        decoration: const InputDecoration(
+                          labelText: 'Template',
+                        ),
+                        items: SettingsService.templates.entries.map((e) {
+                          final label =
+                              e.key[0].toUpperCase() + e.key.substring(1);
+                          return DropdownMenuItem(
+                              value: e.key, child: Text(label));
+                        }).toList(),
+                        onChanged: (v) =>
+                            setState(() => _selectedTemplate = v ?? 'general'),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Context / extra notes
+                      TextField(
+                        controller: _contextController,
+                        decoration: const InputDecoration(
+                          labelText: 'Context (optional)',
+                          hintText: 'e.g. from anime, business, casual...',
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Lookup button
+                      SizedBox(
+                        height: 48,
+                        child: FilledButton.icon(
+                          onPressed: _isLoading ? null : _lookup,
+                          icon: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Text('🔍', style: TextStyle(fontSize: 18)),
+                          label: Text(
+                              _isLoading ? 'Looking up...' : 'Look Up 🥕'),
+                        ),
+                      ),
+
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Card(
+                          color: Theme.of(context).colorScheme.errorContainer,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              _error!,
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer,
+                              ),
                             ),
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 24),
+
+                      // Tips
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '🐰 Tips',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 8),
+                              _tip('Type kana (e.g. はし) to see all kanji forms.'),
+                              _tip('Type kanji (e.g. 食べる) for detailed usages.'),
+                              _tip('Add context for more relevant sentences.'),
+                              _tip('Tap the bunny for a surprise! 🐰✨'),
+                              _tip('Tap 10 times fast for a secret! 🤫'),
+                            ],
                           ),
                         ),
                       ),
                     ],
-
-                    const SizedBox(height: 24),
-
-                    // Tips
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '🐰 Tips',
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                            const SizedBox(height: 8),
-                            _tip('Type kana (e.g. はし) to see all kanji forms.'),
-                            _tip('Type kanji (e.g. 食べる) for detailed usages.'),
-                            _tip('Add context for more relevant sentences.'),
-                            _tip('Tap the bunny! 🐰✨'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

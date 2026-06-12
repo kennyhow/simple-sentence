@@ -18,15 +18,15 @@ class EmojiRainOverlay extends StatefulWidget {
 
   /// Show a one-shot emoji rain burst.
   static void show(BuildContext context) {
-    final overlay = context.findAncestorStateOfType<_EmojiRainOverlayState>();
+    final overlay = context.findAncestorStateOfType<EmojiRainOverlayState>();
     overlay?.trigger();
   }
 
   @override
-  State<EmojiRainOverlay> createState() => _EmojiRainOverlayState();
+  State<EmojiRainOverlay> createState() => EmojiRainOverlayState();
 }
 
-class _EmojiRainOverlayState extends State<EmojiRainOverlay>
+class EmojiRainOverlayState extends State<EmojiRainOverlay>
     with SingleTickerProviderStateMixin {
   final List<_EmojiParticle> _particles = [];
   final _random = Random();
