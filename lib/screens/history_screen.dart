@@ -16,12 +16,39 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   List<AnkiCard> _cards = [];
+  List<AnkiCard> _filteredCards = [];
   bool _loading = true;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _filteredCards = _cards;
+      } else {
+        _filteredCards = _cards.where((c) {
+          return c.word.toLowerCase().contains(query) ||
+              c.reading.toLowerCase().contains(query) ||
+              c.meaning.toLowerCase().contains(query) ||
+              c.sentence.toLowerCase().contains(query);
+        }).toList();
+      }
+    });
   }
 
   Future<void> _loadHistory() async {
@@ -32,6 +59,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           .map((j) =>
               AnkiCard.fromJson(jsonDecode(j) as Map<String, dynamic>))
           .toList();
+      _filteredCards = _cards;
       _loading = false;
     });
   }
@@ -76,6 +104,35 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('History'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Filter by word, reading, or meaning...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: theme.colorScheme.surface,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -83,7 +140,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               onRefresh: _loadHistory,
               child: _cards.isEmpty
                   ? _buildEmptyState(theme)
-                  : _buildCardList(theme),
+                  : _searchQuery.isNotEmpty && _filteredCards.isEmpty
+                      ? _buildNoResults(theme)
+                      : _buildCardList(theme),
             ),
     );
   }
@@ -126,14 +185,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  Widget _buildNoResults(ThemeData theme) {
+    return ListView(
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🐰', style: TextStyle(fontSize: 48)),
+                const SizedBox(height: 12),
+                Text(
+                  'No cards match "$_searchQuery"',
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Try a different word or reading.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.onSurface.withAlpha(120),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCardList(ThemeData theme) {
+    final cards = _filteredCards;
     return ListView.builder(
       padding: const EdgeInsets.all(8),
-      itemCount: _cards.length + 1, // +1 for header
+      itemCount: cards.length + 1, // +1 for header
       itemBuilder: (context, index) {
         if (index == 0) return _buildHeader(theme);
 
-        final card = _cards[index - 1];
+        final card = cards[index - 1];
         final isDue = card.isDueForRotation() && card.ankiNoteId != null;
         final isMaxLevel = card.rotationLevel >= RotationConfig.maxLevel;
 
@@ -273,12 +364,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildHeader(ThemeData theme) {
+    final showingFiltered = _searchQuery.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Row(
         children: [
           Text(
-            '${_cards.length} card${_cards.length == 1 ? '' : 's'}',
+            showingFiltered
+                ? '${_filteredCards.length} of ${_cards.length} card${_cards.length == 1 ? '' : 's'}'
+                : '${_cards.length} card${_cards.length == 1 ? '' : 's'}',
             style: theme.textTheme.titleSmall?.copyWith(
               color: theme.colorScheme.onSurface.withAlpha(150),
             ),
